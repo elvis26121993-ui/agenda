@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Seguridad: solo se permite código y recursos de este mismo sitio. Nada externo. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#123B36">
+<meta name="description" content="Agenda personal con dictado por voz y notas de audio. Tus datos se guardan solo en tu teléfono.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Agenda">
+<title>Agenda de Voz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <button id="btnMonth" class="month-btn" type="button" aria-label="Elegir fecha">
+      <span id="monthLabel">Noviembre 2026</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+    </button>
+    <div class="top-actions">
+      <button id="btnToday" class="chip" type="button">Hoy</button>
+      <button id="btnSpeakDay" class="icon-btn" type="button" aria-label="Escuchar la agenda del día" title="Escuchar el día">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a4.5 4.5 0 010 7M18.5 6a8 8 0 010 12"/></svg>
+      </button>
+      <button id="btnSettings" class="icon-btn" type="button" aria-label="Ajustes y copia de seguridad" title="Ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="week" id="week" role="tablist" aria-label="Días de la semana"></div>
+  <nav class="tabs" aria-label="Vistas">
+    <button class="tab is-on" type="button" data-view="day" id="tabDay">Día</button>
+    <button class="tab" type="button" data-view="upcoming" id="tabUpcoming">Próximos</button>
+    <button class="tab" type="button" data-view="search" id="tabSearch">Buscar</button>
+  </nav>
+</header>
+
+<main id="main">
+  <div class="search-bar" id="searchBar" hidden>
+    <input id="searchInput" type="search" placeholder="Buscar en tus notas…" autocomplete="off" aria-label="Buscar">
+  </div>
+  <h2 class="day-title" id="dayTitle"></h2>
+  <ul class="list" id="list" aria-live="polite"></ul>
+  <div class="empty" id="empty" hidden>
+    <p class="empty-title" id="emptyTitle">Nada anotado para este día</p>
+    <p class="empty-text">Toca el micrófono y di, por ejemplo: <em>«mañana a las 3 de la tarde reunión con Juan»</em>.</p>
+  </div>
+</main>
+
+<div class="dock">
+  <button id="btnAdd" class="dock-side" type="button" aria-label="Anotar escribiendo">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    <span>Escribir</span>
+  </button>
+  <button id="btnDictate" class="mic" type="button" aria-label="Dictar una nota por voz">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+  </button>
+  <button id="btnMemo" class="dock-side" type="button" aria-label="Grabar una nota de audio">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" class="fill"/></svg>
+    <span>Audio</span>
+  </button>
+</div>
+
+<!-- Dictado -->
+<dialog id="dlgDictate" class="sheet" aria-labelledby="dictTitle">
+  <div class="sheet-body">
+    <h3 id="dictTitle">Te escucho…</h3>
+    <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="transcript" id="transcript"><span class="hint">Habla con naturalidad. Puedes decir el día y la hora.</span></p>
+    <p class="error-msg" id="dictError" hidden></p>
+    <div class="row-end">
+      <button class="btn ghost" type="button" id="dictCancel">Cancelar</button>
+      <button class="btn primary" type="button" id="dictDone">Listo</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Editor -->
+<dialog id="dlgEdit" class="sheet" aria-labelledby="editHeading">
+  <form class="sheet-body" id="editForm" novalidate>
+    <h3 id="editHeading">Nueva nota</h3>
+    <label class="field">
+      <span>Qué</span>
+      <div class="with-mic">
+        <input id="fTitle" type="text" maxlength="200" required autocomplete="off" placeholder="Ej. Reunión con Juan">
+        <button type="button" class="mini-mic" data-target="fTitle" aria-label="Dictar el título">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+        </button>
+      </div>
+    </label>
+    <div class="two">
+      <label class="field"><span>Día</span><input id="fDate" type="date" required></label>
+      <label class="field"><span>Hora</span><input id="fTime" type="time"></label>
+    </div>
+    <label class="field">
+      <span>Detalles</span>
+      <div class="with-mic">
+        <textarea id="fNotes" rows="3" maxlength="4000" placeholder="Opcional"></textarea>
+        <button type="button" class="mini-mic" data-target="fNotes" aria-label="Dictar los detalles">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+        </button>
+      </div>
+    </label>
+    <p class="live-hint" id="miniStatus" hidden></p>
+
+    <div class="field">
+      <span>Nota de audio</span>
+      <div class="recorder" id="recorder">
+        <button type="button" class="btn rec" id="recBtn">Grabar</button>
+        <span class="rec-time" id="recTime">0:00</span>
+        <audio id="recAudio" controls preload="metadata" hidden></audio>
+        <button type="button" class="btn ghost small" id="recDel" hidden>Quitar audio</button>
+      </div>
+    </div>
+
+    <label class="switch">
+      <input type="checkbox" id="fRemind">
+      <span>Avisarme a la hora (con la app abierta)</span>
+    </label>
+
+    <div class="row-between">
+      <button type="button" class="btn danger ghost" id="editDelete" hidden>Borrar</button>
+      <div class="row-end">
+        <button type="button" class="btn ghost" id="editCancel">Cancelar</button>
+        <button type="submit" class="btn primary" id="editSave">Guardar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmar -->
+<dialog id="dlgConfirm" class="sheet small-sheet" aria-labelledby="confirmText">
+  <div class="sheet-body">
+    <p id="confirmText">¿Seguro?</p>
+    <div class="row-end">
+      <button class="btn ghost" type="button" id="confirmNo">Cancelar</button>
+      <button class="btn danger" type="button" id="confirmYes">Sí, borrar</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Calendario mensual -->
+<dialog id="dlgMonth" class="sheet" aria-labelledby="calLabel">
+  <div class="sheet-body">
+    <div class="cal-head">
+      <button class="icon-btn" type="button" id="calPrev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h3 id="calLabel"></h3>
+      <button class="icon-btn" type="button" id="calNext" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="row-end"><button class="btn ghost" type="button" id="calClose">Cerrar</button></div>
+  </div>
+</dialog>
+
+<!-- Ajustes -->
+<dialog id="dlgSettings" class="sheet" aria-labelledby="setTitle">
+  <div class="sheet-body">
+    <h3 id="setTitle">Ajustes</h3>
+    <label class="field">
+      <span>Idioma del dictado</span>
+      <select id="sLang">
+        <option value="es-PE">Español (Perú)</option>
+        <option value="es-MX">Español (México)</option>
+        <option value="es-CO">Español (Colombia)</option>
+        <option value="es-AR">Español (Argentina)</option>
+        <option value="es-CL">Español (Chile)</option>
+        <option value="es-ES">Español (España)</option>
+        <option value="es-US">Español (EE. UU.)</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Velocidad de lectura en voz alta</span>
+      <input id="sRate" type="range" min="0.6" max="1.5" step="0.1" value="1">
+    </label>
+    <div class="field">
+      <span>Copia de seguridad</span>
+      <p class="muted">Tus notas viven solo en este teléfono. Guarda una copia de vez en cuando por si cambias de celular o borras el navegador.</p>
+      <div class="row-start">
+        <button class="btn" type="button" id="btnExport">Guardar copia</button>
+        <label class="btn" for="importFile">Restaurar copia</label>
+        <input id="importFile" type="file" accept="application/json,.json" class="visually-hidden">
+      </div>
+    </div>
+    <div class="field">
+      <span>Avisos</span>
+      <button class="btn" type="button" id="btnNotif">Permitir notificaciones</button>
+    </div>
+    <p class="muted small" id="storageInfo"></p>
+    <div class="row-end"><button class="btn primary" type="button" id="setClose">Cerrar</button></div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="parser.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
